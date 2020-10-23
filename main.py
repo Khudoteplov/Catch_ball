@@ -1,6 +1,6 @@
 import pygame
 from pygame.draw import *
-from random import randint
+from random import randint, uniform
 
 pygame.init()
 
@@ -8,6 +8,8 @@ myfont = pygame.font.SysFont('Comic Sans MS', 30)
 
 FPS = 100
 # screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+print('What is your name?')
+name = input()
 
 height = 800
 width = 1000
@@ -21,37 +23,85 @@ CYAN = (0, 255, 255)
 BLACK = (0, 0, 0)
 COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
 
-bx, by, bvx, bvy, br, ballcolor = [], [], [], [], [], []
+
+class Ball:
+    def __init__(self, x, y, vx, vy, radius, color):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.radius = radius
+        self.color = color
+
+    def move(self, dt):
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+
+    def draw(self):
+        circle(screen, self.color, (self.x, self.y), self.radius)
+
+    def bounce(self):
+        if self.x < 0:
+            self.vx = -1 * sgn(self.vx) * randint(1, 5)
+            self.x = 0
+        elif self.y < 0:
+            self.vy = -1 * sgn(self.vy) * randint(1, 5)
+            self.y = 0
+        elif self.x > width:
+            self.vx = -1 * sgn(self.vx) * randint(1, 5)
+            self.x = width
+        elif self.y > height:
+            self.vy = -1 * sgn(self.vy) * randint(1, 5)
+            self.y = height
 
 
-def new_ball():
-    """рисует новый шарик """
-    global bx, by, br, bvx, bvy, ballcolor
-    bx.append(randint(100, width - 100))
-    by.append(randint(100, height - 100))
-    bvx.append(randint(1, 5) * (-1) ** randint(1, 2))
-    bvy.append(randint(1, 5) * (-1) ** randint(1, 2))
-    br.append(randint(15, 100))
-    ballcolor.append(COLORS[randint(0, 5)])
+class Square:
+    def __init__(self, x, y, vx, vy, a, color):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.a = a
+        self.color = color
 
+    def move(self, b, dt):
+        self.x += int(self.vx * dt)
+        self.y += int(self.vy * dt)
+        self.vx, self.vy = self.vx * (1 - b**2 * dt**2)**0.5 + b * dt * self.vy, \
+                           self.vy * (1 - b**2 * dt**2)**0.5 - b * dt * self.vx
 
-def move_ball(k, dt):
-    global bx, by
-    circle(screen, ballcolor[k], (bx[k], by[k]), br[k])
-    bx[k] += dt * bvx[k]
-    by[k] += dt * bvy[k]
+    def bounce(self):
+        if self.x < 0:
+            self.vx = -1 * sgn(self.vx) * uniform(2.0, 5.0)
+            self.x = 0
+        elif self.y < 0:
+            self.vy = -1 * sgn(self.vy) * uniform(2.0, 5.0)
+            self.y = 0
+        elif self.x > width:
+            self.vx = -1 * sgn(self.vx) * uniform(2.0, 5.0)
+            self.x = width
+        elif self.y > height:
+            self.vy = -1 * sgn(self.vy) * uniform(2.0, 5.0)
+            self.y = height
+
+    def draw(self):
+        rect(screen, self.color, (self.x - self.a // 2, self.y - self.a // 2, self.a, self.a))
 
 
 def click(clickvent):
     global miss
     p = False
     t = -1
-    for i in range(ballcounter):
-        if ((clickvent.pos[0] - bx[i]) ** 2 + (clickvent.pos[1] - by[i]) ** 2) <= (br[i] ** 2):
+    for i in balls:
+        if ((clickvent.pos[0] - i.x) ** 2 + (clickvent.pos[1] - i.y) ** 2) <= (i.radius ** 2):
             p = True
             t = i
-
-    if not p: miss += 1  # miss - counter of misses
+    for j in squares:
+        if (-j.a//2 <= (clickvent.pos[0] - j.x) <= j.a//2) and (-j.a//2 <= (clickvent.pos[1] - j.y) <= j.a//2):
+            p = True
+            t = j
+    if not p:
+        miss += 1  # miss - counter of misses
     return p, t
 
 
@@ -62,25 +112,6 @@ def sgn(q):
         return -1
     else:
         return 0
-
-
-def bounce(k):
-    if bx[i] < 0:
-        bvx[k] = -1 * sgn(bvx[k]) * randint(1, 5)
-        # bvy[k] = randint(1, 5) * (-1) ** randint(1, 2)
-        bx[i] = 0
-    elif by[i] < 0:
-        bvy[k] = -1 * sgn(bvy[k]) * randint(1, 5)
-        # bvx[k] = randint(1, 5) * (-1) ** randint(1, 2)
-        by[i] = 0
-    elif bx[i] > width:
-        bvx[k] = -1 * sgn(bvx[k]) * randint(1, 5)
-        # bvy[k] = randint(1, 5) * (-1) ** randint(1, 2)
-        bx[i] = width
-    elif by[i] > height:
-        bvy[k] = -1 * sgn(bvy[k]) * randint(1, 5)
-        # bvx[k] = randint(1, 5) * (-1) ** randint(1, 2)
-        by[i] = height
 
 
 def counter(action):
@@ -120,27 +151,50 @@ finished = False
 n = 0
 miss = 0
 action = False
-gameover = False
-ballcounter = 0
+game_over = False
 maxballs = n
-newb = True
+new_ball = True
+new_square = True
 anotherball = 31
 pygame.time.set_timer(anotherball, 4000)
+balls = []
+squares = []
+rating = open('leaderboard.txt', 'r')
+leaderboard = rating.read()
+rating.close()
 
 while not finished:
 
-    if not gameover:
-        textsurface = myfont.render('SCORE:' + str(n), False, (255, 255, 255))
-        screen.blit(textsurface, (0, 0))
+    if not game_over:
+        text_surface = myfont.render('SCORE:' + str(n), False, (255, 255, 255))
+        screen.blit(text_surface, (0, 0))
         screen.blit(misses[miss], (0, 100))
-        if newb:
-            new_ball()
-            ballcounter += 1
-        for i in range(ballcounter):
-            bounce(i)
-            move_ball(i, 2)
+        if new_ball:
+            balls.append(Ball(randint(100, width - 100),
+                              randint(100, height - 100),
+                              randint(1, 5) * (-1) ** randint(1, 2),
+                              randint(1, 5) * (-1) ** randint(1, 2),
+                              randint(15, 100),
+                              COLORS[randint(0, len(COLORS) - 1)]))
+
+        if new_square:
+            squares.append(Square(randint(50, width - 50),
+                                  randint(50, height - 50),
+                                  uniform(2.0, 6.0) * (-1) ** randint(1, 2),
+                                  uniform(2.0, 6.0) * (-1) ** randint(1, 2),
+                                  2 * randint(15, 50),
+                                  COLORS[randint(0, len(COLORS) - 1)]))
+        for square in squares:
+            square.bounce()
+            square.draw()
+            square.move(0.025, 2)
+
+        for ball in balls:
+            ball.bounce()
+            ball.draw()
+            ball.move(2)
         pygame.display.update()
-        newb = False
+        new_ball, new_square = False, False
     else:
         textsurface1 = myfont.render('GAME OVER! YOUR SCORE:' + str(n), False, (255, 255, 255))
         screen.blit(textsurface1, (0, 0))
@@ -149,27 +203,38 @@ while not finished:
     clock.tick(FPS)
     for event in pygame.event.get():
         if event.type == anotherball:
-            newb = True
+            new_ball = True
         if event.type == pygame.QUIT:
             finished = True
         elif event.type == pygame.MOUSEBUTTONDOWN:
             r, u = click(event)
             counter(r)
-            if r:
-                bx.pop(u)
-                by.pop(u)
-                bvx.pop(u)
-                bvy.pop(u)
-                br.pop(u)
-                ballcolor.pop(u)
-                ballcounter -= 1
-                # newb = True
-
+            if r and (u in balls):
+                balls.remove(u)
+            elif r and (u in squares):
+                squares.remove(u)
+                n += 999
         if miss >= 3:
-            gameover = True
+            game_over = True
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 finished = True
-
     screen.fill(BLACK)
 pygame.quit()
+p = False
+new_rating = open('leaderboard.txt', 'w')
+if len(str(leaderboard)) == 0:
+    new_rating.write(str(n) + ' ' + name + '\n')
+else:
+    for line in leaderboard.split('\n'):
+        if len(line) > 0:
+            if int(line[0:line.find(' '):1]) >= n:
+                new_rating.write(line + '\n')
+            elif not p:
+                new_rating.write(str(n) + ' ' + name + '\n')
+                p = True
+    if not p:
+        new_rating.write(str(n) + ' ' + name + '\n')
+        p = True
+
+new_rating.close()
